@@ -76,7 +76,7 @@ spec:
     spec:
       containers:
       - name: rabbitmq
-        image: registry.shipformula.com/rabbitmq:3.8.14-management
+        image: rabbitmq:3.8.26-management
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 6379
