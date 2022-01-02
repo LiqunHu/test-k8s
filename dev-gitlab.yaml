@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node121-gitlab-pv
+  labels:
+    app: pvgitlab121
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/nfs/gitlab
+    server: 172.19.135.121
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitlab-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: pvgitlab121
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: shipformula-dev-gitlab
+  name: shipformula-dev-gitlab
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: gitlab80
+    port: 80
+    nodePort: 801
+  - name: gitlab22
+    port: 22
+    nodePort: 8001
+  selector:
+    app: gitlab
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitlab
+  template:
+    metadata:
+      labels:
+        app: gitlab
+    spec:
+      containers:
+      - name: gitlab
+        image: gitlab/gitlab-ce:12.0.1-ce.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GITLAB_OMNIBUS_CONFIG
+          value: |
+            external_url 'https://code.shipformula.com/'
+        ports:
+        - containerPort: 80
+          name: gitlab80
+        - containerPort: 22
+          name: gitlab22
+        volumeMounts:
+        - name: gitlab
+          mountPath: /etc/gitlab
+          subPath: config
+        - name: gitlab
+          mountPath: /var/log/gitlab
+          subPath: logs
+        - name: gitlab
+          mountPath: /var/opt/gitlab
+          subPath: data
+      volumes:
+      - name: gitlab
+        persistentVolumeClaim:
+          claimName: gitlab-pvc

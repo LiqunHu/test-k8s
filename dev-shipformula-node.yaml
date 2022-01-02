@@ -1,0 +1,356 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-workspace-pv
+  labels:
+    app: pvworkspace119
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/shipformula/workspace
+    server: 172.19.135.119
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-temp-pv
+  labels:
+    app: pvtemp119
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/shipformula/public/temp
+    server: 172.19.135.119
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workspace-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: pvworkspace119
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: temp-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: pvtemp119
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: shipformula-authorization-server
+  name: shipformula-authorization-server
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: workspace9090
+    port: 9090
+    targetPort: 9090
+    nodePort: 9090
+  selector:
+    app: shipformula-authorization-server
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipformula-authorization-server
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shipformula-authorization-server
+  template:
+    metadata:
+      labels:
+        app: shipformula-authorization-server
+    spec:
+      nodeSelector:
+        type: node120
+      containers:
+      - name: shipformula-authorization-server
+        image: registry.shipformula.com/node-chrome:v1.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /work/app && npm run genswagger && pm2 start ./bin/www --name app && pm2 logs -f app"]
+        env:
+        - name: NODE_ENV
+          value: dev
+        volumeMounts:
+        - name: authwork
+          mountPath: /work/app/config/config-default.js
+          subPath: config-default-auth.js
+        - name: authwork
+          mountPath: /work/app
+          subPath: shipformula-authorization-server
+        - name: authwork
+          mountPath: /work/log
+          subPath: log
+      volumes:
+      - name: authwork
+        persistentVolumeClaim:
+          claimName: workspace-pvc
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: shipformula-mobile-server
+  name: shipformula-mobile-server
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: workspace9091
+    port: 9091
+    targetPort: 9091
+    nodePort: 9091
+  selector:
+    app: shipformula-mobile-server
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipformula-mobile-server
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shipformula-mobile-server
+  template:
+    metadata:
+      labels:
+        app: shipformula-mobile-server
+    spec:
+      nodeSelector:
+        type: devmaster
+      containers:
+      - name: shipformula-mobile-server
+        image: registry.shipformula.com/node-chrome:v1.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /work/app && npm run genswagger && pm2 start ./bin/www --name app && pm2 logs -f app"]
+        env:
+        - name: NODE_ENV
+          value: dev
+        volumeMounts:
+        - name: serverwork
+          mountPath: /work/app/config/config-default.js
+          subPath: config-default.js
+        - name: serverwork
+          mountPath: /work/app
+          subPath: shipformula-mobile-server
+        - name: serverwork
+          mountPath: /work/log
+          subPath: log
+        - name: serverwork
+          mountPath: /work/cert
+          subPath: cert
+        - name: servertemp
+          mountPath: /work/temp
+      volumes:
+      - name: serverwork
+        persistentVolumeClaim:
+          claimName: workspace-pvc
+      - name: servertemp
+        persistentVolumeClaim:
+          claimName: temp-pvc
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: shipformula-ais-server
+  name: shipformula-ais-server
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: workspace9092
+    port: 9092
+    targetPort: 9092
+    nodePort: 9092
+  selector:
+    app: shipformula-ais-server
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipformula-ais-server
+  namespace: shipformula-dev
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: shipformula-ais-server
+  template:
+    metadata:
+      labels:
+        app: shipformula-ais-server
+    spec:
+      containers:
+      - name: shipformula-ais-server
+        image: registry.shipformula.com/node-chrome:v1.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /work/app && npm run genswagger && pm2 start ./bin/www --name app && pm2 logs -f app"]
+        env:
+        - name: NODE_ENV
+          value: dev
+        volumeMounts:
+        - name: aiswork
+          mountPath: /work/app/config/config-default.js
+          subPath: config-default-ais.js
+        - name: aiswork
+          mountPath: /work/app
+          subPath: shipformula-ais-server
+        - name: aiswork
+          mountPath: /work/log
+          subPath: log
+      volumes:
+      - name: aiswork
+        persistentVolumeClaim:
+          claimName: workspace-pvc
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: shipformula-ei-server
+  name: shipformula-ei-server
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: workspace9093
+    port: 9093
+    targetPort: 9092
+    nodePort: 9093
+  selector:
+    app: shipformula-ei-server
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipformula-ei-server
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shipformula-ei-server
+  template:
+    metadata:
+      labels:
+        app: shipformula-ei-server
+    spec:
+      containers:
+      - name: shipformula-ei-server
+        image: registry.shipformula.com/node-chrome:v1.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /work/app && npm run genswagger && pm2 start ./bin/www --name app && pm2 logs -f app"]
+        env:
+        - name: NODE_ENV
+          value: dev
+        volumeMounts:
+        - name: eiwork
+          mountPath: /work/app/config/config-default.js
+          subPath: config-default-ei.js
+        - name: eiwork
+          mountPath: /work/app
+          subPath: shipformula-ais-server
+        - name: eiwork
+          mountPath: /work/log
+          subPath: log
+      volumes:
+      - name: eiwork
+        persistentVolumeClaim:
+          claimName: workspace-pvc
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: yh52hz-web-home
+  name: yh52hz-web-home
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: home3000
+    port: 3000
+    targetPort: 3000 
+    nodePort: 3000
+  selector:
+    app: yh52hz-web-home
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yh52hz-web-home
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yh52hz-web-home
+  template:
+    metadata:
+      labels:
+        app: yh52hz-web-home
+    spec:
+      nodeSelector:
+        type: node120
+      containers:
+      - name: yh52hz-web-home
+        image: registry.shipformula.com/node-chrome:v1.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /work/app && pm2 start npm -n app -- start && pm2 logs -f app"]
+        env:
+        - name: NODE_ENV
+          value: dev
+        volumeMounts:
+        - name: homework
+          mountPath: /work/app
+          subPath: yh52hz-web-home
+      volumes:
+      - name: homework
+        persistentVolumeClaim:
+          claimName: workspace-pvc

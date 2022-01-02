@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test-mysql-pv
+  labels:
+    app: pvmysql
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: mysql-storage
+  hostPath:
+    path: /run/desktop/mnt/host/f/nfs/mysql/data
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data-pvc
+  namespace: test-k8s
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: mysql-storage
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: test-k8s-mysql
+  name: test-k8s-mysql
+  namespace: test-k8s
+spec:
+  type: NodePort
+  ports:
+  - name: mysql3306
+    port: 3306
+    nodePort: 33306
+  selector:
+    app: mysql
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: test-k8s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3306
+          name: mysql3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "EdWNO2CDXgR9LrcR"
+        - name: TZ
+          value: "Asia/Shanghai"
+        volumeMounts:
+        - name: mysqldata
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysqldata
+        persistentVolumeClaim:
+          claimName: mysql-data-pvc

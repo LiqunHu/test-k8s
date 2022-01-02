@@ -1,0 +1,482 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-java-pv
+  labels:
+    app: pvjava119
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/shipformula/workspace/java
+    server: 172.19.135.119
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: java-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: pvjava119
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-javalog-pv
+  labels:
+    app: pvjavalog119
+spec:
+  capacity:
+    storage: 80Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/shipformula/log
+    server: 172.19.135.119
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: javalog-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 80Gi
+  selector:
+    matchLabels:
+      app: pvjavalog119
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-javaais-pv
+  labels:
+    app: pvjavaais119
+spec:
+  capacity:
+    storage: 80Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/nfs/loongship_ais
+    server: 172.19.135.119
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: javaais-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 80Gi
+  selector:
+    matchLabels:
+      app: pvjavaais119
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-javavessel-pv
+  labels:
+    app: pvjavavessel119
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/shipformula/vessel
+    server: 172.19.135.119
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: javavessel-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  selector:
+    matchLabels:
+      app: pvjavavessel119
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-hifleetais-pv
+  labels:
+    app: pvhifleetais119
+spec:
+  capacity:
+    storage: 30Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/nfs/hifleet_ais
+    server: 172.19.135.119
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hifleetais-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 30Gi
+  selector:
+    matchLabels:
+      app: pvhifleetais119
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node119-downloadais-pv
+  labels:
+    app: pvdownloadais119
+spec:
+  capacity:
+    storage: 30Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/nfs/download_hifleet_ais
+    server: 172.19.135.119
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: downloadais-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 30Gi
+  selector:
+    matchLabels:
+      app: pvdownloadais119
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: yh52hz-backend-services-ais
+  name: yh52hz-backend-services-ais
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: java8013
+    port: 8013
+    targetPort: 8013
+    nodePort: 8013
+  selector:
+    app: yh52hz-backend-services-ais
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yh52hz-backend-services-ais
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yh52hz-backend-services-ais
+  template:
+    metadata:
+      labels:
+        app: yh52hz-backend-services-ais
+    spec:
+      containers:
+      - name: yh52hz-backend-services-ais
+        image: registry.shipformula.com/jdk:1.8.0_201
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /home && java -jar backend_ais.jar -XX:-OmitStackTraceInFastThrow --spring.profiles.active=test --spring.config.additional-location=yh52hz-backend-config.properties"]
+        volumeMounts:
+        - name: aiswork
+          mountPath: /home
+        - name: aiswork
+          mountPath: /home/yh52hz-backend-config.properties
+          subPath: yh52hz-backend-config.properties
+        - name: aislog
+          mountPath: /home/log
+        - name: aisais
+          mountPath: /home/loongship_ais
+      volumes:
+      - name: aiswork
+        persistentVolumeClaim:
+          claimName: java-pvc
+      - name: aislog
+        persistentVolumeClaim:
+          claimName: javalog-pvc
+      - name: aisais
+        persistentVolumeClaim:
+          claimName: javaais-pvc
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: yh52hz-backend-services-hifleet
+  name: yh52hz-backend-services-hifleet
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: java8016
+    port: 8016
+    targetPort: 8016
+    nodePort: 8016
+  selector:
+    app: yh52hz-backend-services-hifleet
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yh52hz-backend-services-hifleet
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yh52hz-backend-services-hifleet
+  template:
+    metadata:
+      labels:
+        app: yh52hz-backend-services-hifleet
+    spec:
+      containers:
+      - name: yh52hz-backend-services-hifleet
+        image: registry.shipformula.com/jdk:1.8.0_201
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /home && java -jar backend_hifleet.jar -XX:-OmitStackTraceInFastThrow --spring.profiles.active=test --spring.config.additional-location=yh52hz-backend-config.properties"]
+        volumeMounts:
+        - name: hifleetwork
+          mountPath: /home
+        - name: hifleetwork
+          mountPath: /home/yh52hz-backend-config.properties
+          subPath: yh52hz-backend-config.properties
+        - name: hifleetlog
+          mountPath: /home/log
+      volumes:
+      - name: hifleetwork
+        persistentVolumeClaim:
+          claimName: java-pvc
+      - name: hifleetlog
+        persistentVolumeClaim:
+          claimName: javalog-pvc
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: yh52hz-backend-services-toolbox
+  name: yh52hz-backend-services-toolbox
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: java8017
+    port: 8017
+    targetPort: 8017
+    nodePort: 8017
+  selector:
+    app: yh52hz-backend-services-toolbox
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yh52hz-backend-services-toolbox
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yh52hz-backend-services-toolbox
+  template:
+    metadata:
+      labels:
+        app: yh52hz-backend-services-toolbox
+    spec:
+      containers:
+      - name: yh52hz-backend-services-toolbox
+        image: registry.shipformula.com/jdk:1.8.0_201
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /home && java -jar toolbox-api.jar -XX:-OmitStackTraceInFastThrow --spring.profiles.active=test --spring.config.additional-location=yh52hz-backend-config.properties"]
+        volumeMounts:
+        - name: toolboxwork
+          mountPath: /home
+        - name: toolboxwork
+          mountPath: /home/yh52hz-backend-config.properties
+          subPath: yh52hz-backend-config.properties
+        - name: toolboxlog
+          mountPath: /home/log
+      volumes:
+      - name: toolboxwork
+        persistentVolumeClaim:
+          claimName: java-pvc
+      - name: toolboxlog
+        persistentVolumeClaim:
+          claimName: javalog-pvc
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: yh52hz-backend-services-api
+  name: yh52hz-backend-services-api
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: java8014
+    port: 8014
+    targetPort: 8014
+    nodePort: 8014
+  selector:
+    app: yh52hz-backend-services-api
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yh52hz-backend-services-api
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yh52hz-backend-services-api
+  template:
+    metadata:
+      labels:
+        app: yh52hz-backend-services-api
+    spec:
+      nodeSelector:
+          type: node120
+      containers:
+      - name: yh52hz-backend-services-api
+        image: registry.shipformula.com/jdk:1.8.0_201
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /home && java -jar backend_api.jar -XX:-OmitStackTraceInFastThrow --spring.profiles.active=test --spring.config.additional-location=yh52hz-backend-config.properties"]
+        volumeMounts:
+        - name: apiwork
+          mountPath: /home
+        - name: apiwork
+          mountPath: /home/yh52hz-backend-config.properties
+          subPath: yh52hz-backend-config.properties
+        - name: apilog
+          mountPath: /home/log
+        - name: apivessel
+          mountPath: /home/vessel
+      volumes:
+      - name: apiwork
+        persistentVolumeClaim:
+          claimName: java-pvc
+      - name: apilog
+        persistentVolumeClaim:
+          claimName: javalog-pvc
+      - name: apivessel
+        persistentVolumeClaim:
+          claimName: javavessel-pvc
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: yh52hz-backend-services-faster
+  name: yh52hz-backend-services-faster
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: java8015
+    port: 8015
+    targetPort: 8015
+    nodePort: 8015
+  selector:
+    app: yh52hz-backend-services-faster
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yh52hz-backend-services-faster
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yh52hz-backend-services-faster
+  template:
+    metadata:
+      labels:
+        app: yh52hz-backend-services-faster
+    spec:
+      containers:
+      - name: yh52hz-backend-services-faster
+        image: registry.shipformula.com/jdk:1.8.0_201
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-c","cd /home && java -jar backend_faster.jar -XX:-OmitStackTraceInFastThrow --spring.profiles.active=test --spring.config.additional-location=yh52hz-backend-config.properties"]
+        volumeMounts:
+        - name: fasterwork
+          mountPath: /home
+        - name: fasterwork
+          mountPath: /home/yh52hz-backend-config.properties
+          subPath: yh52hz-backend-config.properties
+        - name: fasterlog
+          mountPath: /home/log
+        - name: fasterdownload
+          mountPath: /home/download_hifleet_ais
+      volumes:
+      - name: fasterwork
+        persistentVolumeClaim:
+          claimName: java-pvc
+      - name: fasterlog
+        persistentVolumeClaim:
+          claimName: javalog-pvc
+      - name: fasterais
+        persistentVolumeClaim:
+          claimName: hifleetais-pvc
+      - name: fasterdownload
+        persistentVolumeClaim:
+          claimName: downloadais-pvc

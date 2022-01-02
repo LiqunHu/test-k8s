@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test-rabbit-pv
+  labels:
+    app: pvrabbit
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: rabbit-storage
+  local:
+    path: /run/desktop/mnt/host/f/nfs/rabbitmq-data
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - docker-desktop
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbit-data-pvc
+  namespace: test-k8s
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: rabbit-storage
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: test-k8s-rabbitmq
+  name: test-k8s-rabbitmq
+  namespace: test-k8s
+spec:
+  type: NodePort
+  ports:
+  - name: rabbitmq5672
+    port: 5672
+    targetPort: 5672
+    nodePort: 5672
+  - name: rabbitmq15672
+    port: 15672
+    targetPort: 15672
+    nodePort: 15672
+  selector:
+    app: rabbitmq
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: test-k8s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: registry.shipformula.com/rabbitmq:3.8.14-management
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 6379
+          name: rabbitmq6379
+        - containerPort: 16379
+          name: rabbitmq16379
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: "shipfmrabbit"
+        - name: RABBITMQ_DEFAULT_PASS
+          value: "eVBigMrGDvX6nuwM"
+        volumeMounts:
+        - name: mqdata
+          mountPath: /var/lib/rabbitmq
+      volumes:
+      - name: mqdata
+        persistentVolumeClaim:
+          claimName: rabbit-data-pvc

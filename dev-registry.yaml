@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: node120-registry-pv
+  labels:
+    app: pvregistry120
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /home/nfs/registry
+    server: 172.19.135.120
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-pvc
+  namespace: shipformula-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  selector:
+    matchLabels:
+      app: pvregistry120
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: shipformula-dev-registry
+  name: shipformula-dev-registry
+  namespace: shipformula-dev
+spec:
+  type: NodePort
+  ports:
+  - name: registry5000
+    port: 5000
+    nodePort: 5000
+  selector:
+    app: registry
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry
+  namespace: shipformula-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      nodeSelector:
+          type: node121
+      containers:
+      - name: registry
+        image: registry:2.7.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+          name: registry5000
+        volumeMounts:
+        - name: registrydata
+          mountPath: /var/lib/registry
+      volumes:
+      - name: registrydata
+        persistentVolumeClaim:
+          claimName: registry-pvc

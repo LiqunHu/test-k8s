@@ -1,0 +1,108 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: elk-local-storage
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+apiVersion: v1 
+kind: PersistentVolume 
+metadata: 
+ name: elk-pv 
+spec: 
+ capacity: 
+   storage: 100Gi 
+ volumeMode: Filesystem 
+ accessModes: 
+ - ReadWriteOnce 
+ persistentVolumeReclaimPolicy: Retain 
+ storageClassName: elk-local-storage
+ local: 
+   path: /run/desktop/mnt/host/f/nfs/elk
+ nodeAffinity: 
+   required: 
+     nodeSelectorTerms: 
+     - matchExpressions: 
+       - key: kubernetes.io/hostname 
+         operator: In 
+         values: 
+         - docker-desktop
+
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: ela
+  namespace: test-k8s
+spec:
+  version: 7.16.2
+  nodeSets:
+    - name: master
+      count: 1
+      podTemplate:
+        spec:
+          initContainers:
+          - name: install-plugins
+            command:
+            - sh
+            - -c
+            - |
+              bin/elasticsearch-plugin install --batch https://github.com/medcl/elasticsearch-analysis-ik/releases/download/v7.16.2/elasticsearch-analysis-ik-7.16.2.zip; bin/elasticsearch-plugin install --batch https://github.com/medcl/elasticsearch-analysis-pinyin/releases/download/v7.16.2/elasticsearch-analysis-pinyin-7.16.2.zip
+      config:
+        node.master: true
+        node.data: true
+        node.ingest: true
+        node.store.allow_mmap: false
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+            storageClassName: elk-local-storage
+  http:
+    service:
+      spec:
+        type: NodePort
+        ports:
+        - port: 9200
+          targetPort: 9200
+          protocol: TCP
+          nodePort: 9200
+
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+  namespace: test-k8s
+spec:
+  version: 7.16.2
+  count: 1
+  elasticsearchRef:
+    name: ela
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+      nodeSelector:
+        type: node120
+  config:
+    xpack.security.secureCookies: true
+    xpack.security.sameSiteCookies: None
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+    service:
+      spec:
+        type: NodePort
+        ports:
+        - port: 5601
+          targetPort: 5601
+          nodePort: 5601
