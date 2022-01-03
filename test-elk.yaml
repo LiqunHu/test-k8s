@@ -49,7 +49,7 @@ spec:
             - sh
             - -c
             - |
-              bin/elasticsearch-plugin install --batch https://github.com/medcl/elasticsearch-analysis-ik/releases/download/v7.16.2/elasticsearch-analysis-ik-7.16.2.zip; bin/elasticsearch-plugin install --batch https://github.com/medcl/elasticsearch-analysis-pinyin/releases/download/v7.16.2/elasticsearch-analysis-pinyin-7.16.2.zip
+              bin/elasticsearch-plugin install --batch https://code.shipformula.com/huliqun/elkplugin/uploads/809cb80dfaa648a2cd75c110e13641b0/elasticsearch-analysis-ik-7.16.2.zip; bin/elasticsearch-plugin install --batch https://code.shipformula.com/huliqun/elkplugin/uploads/f4050bba0698d81bc6efd498a9653acb/elasticsearch-analysis-pinyin-7.16.2.zip
       config:
         node.master: true
         node.data: true
@@ -63,18 +63,8 @@ spec:
               - ReadWriteOnce
             resources:
               requests:
-                storage: 10Gi
+                storage: 100Gi
             storageClassName: elk-local-storage
-  http:
-    service:
-      spec:
-        type: NodePort
-        ports:
-        - port: 9200
-          targetPort: 9200
-          protocol: TCP
-          nodePort: 9200
-
 ---
 apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana
@@ -90,19 +80,3 @@ spec:
     spec:
       containers:
       - name: kibana
-      nodeSelector:
-        type: node120
-  config:
-    xpack.security.secureCookies: true
-    xpack.security.sameSiteCookies: None
-  http:
-    tls:
-      selfSignedCertificate:
-        disabled: true
-    service:
-      spec:
-        type: NodePort
-        ports:
-        - port: 5601
-          targetPort: 5601
-          nodePort: 5601

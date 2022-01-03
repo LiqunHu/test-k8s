@@ -1,1 +1,2 @@
 https://www.elastic.co/cn/downloads/elastic-cloud-kubernetes
+kubectl port-forward service/kibana-kb-http 5601 -n test-k8s
